@@ -1,0 +1,13 @@
+node_modules/
+.next/
+next-env.d.ts
+out/
+data/
+.env*
+!.env.example
+*.tsbuildinfo
+__pycache__/
+.venv/
+*.log
+.playwright-mcp/
+coverage/
