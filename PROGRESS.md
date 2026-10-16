@@ -34,6 +34,7 @@ Las pruebas de interfaz usaron copias aisladas y persistencia en memoria para no
 - Scripts de comprobación dentro de `scripts/qa/`; el renderer conserva su ruta operativa.
 - Versión de interfaz y API obtenida del mismo `package.json`.
 - Credenciales, fotografías, bases de datos y archivos generados excluidos por `.gitignore`.
+- Publicación autorizada como repositorio público, con aviso de copyright 2026 de `alber-brayan` y reserva de derechos en `LICENSE`, README y página del release. Las dependencias conservan sus licencias.
 
 ## Pendientes y límites
 

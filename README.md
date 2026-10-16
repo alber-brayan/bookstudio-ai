@@ -4,6 +4,8 @@
 
 [Descargar v1.0.0](https://github.com/alber-brayan/bookstudio-ai/releases/tag/v1.0.0) · [Guía completa](docs/GUIA.md) · [Cambios](CHANGELOG.md) · [Estado y límites](PROGRESS.md)
 
+**Copyright © 2026 alber-brayan. Todos los derechos reservados.** El código propio se publica para consulta; cualquier permiso adicional de uso, modificación o redistribución requiere autorización del titular, sin limitar lo previsto por la ley y los términos de GitHub. Consulta [LICENSE](LICENSE). Las dependencias conservan sus licencias respectivas.
+
 ## Empezar en Windows
 
 Requiere Node.js 24 o superior, Python con OpenCV/Pillow/NumPy y un navegador con WebGL. Desarrollo y pruebas realizados con Node 24.18 y Python 3.14.
