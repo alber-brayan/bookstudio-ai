@@ -123,12 +123,14 @@ export const projectSchema = z.object({
   fps: z.union([z.literal(24), z.literal(30), z.literal(60)]),
   format: z.enum(["landscape", "portrait", "square"]),
   performance: z.enum(["low", "medium", "high"]),
+  exportQuality: z.enum(["preview", "720p", "1080p"]).optional(),
   useProxies: z.boolean().optional(),
   showText: z.boolean().optional(),
   audio: z.string().nullable(),
   updatedAt: z.string(),
 });
 export type Project = z.infer<typeof projectSchema>;
+export type ExportQuality = "preview" | "720p" | "1080p" | "4k";
 export type RenderJob = {
   id: string;
   status: "queued" | "rendering" | "done" | "error" | "cancelled";
@@ -138,6 +140,15 @@ export type RenderJob = {
   createdAt: string;
   kind: "video" | "png" | "webp";
   projectName: string;
+  projectId?: string;
+  output?: {
+    width: number;
+    height: number;
+    fps: number;
+    duration: number;
+    quality: ExportQuality;
+    format: Project["format"];
+  };
 };
 export const makeBook = (name = "Libro sin título"): Book => ({
   id: crypto.randomUUID(),
@@ -202,9 +213,16 @@ export const totalFrames = (project: Project) =>
   project.scenes.reduce((s, v) => s + Math.round(v.duration * project.fps), 0);
 export const dimensions = (
   format: Project["format"],
-  quality: "preview" | "1080p" | "4k" = "1080p",
+  quality: ExportQuality = "1080p",
 ) => {
-  const h = quality === "4k" ? 2160 : quality === "preview" ? 360 : 1080;
+  const h =
+    quality === "4k"
+      ? 2160
+      : quality === "preview"
+        ? 360
+        : quality === "720p"
+          ? 720
+          : 1080;
   return format === "portrait"
     ? { width: h, height: Math.round((h * 16) / 9) }
     : format === "square"

@@ -27,7 +27,6 @@ import {
   RotateCcw,
   Download,
   Settings2,
-  Image as ImageIcon,
   Film,
   Check,
   ShieldCheck,
@@ -48,8 +47,12 @@ import { CropEditor } from "./crop-editor";
 import { AIEditor } from "./ai-editor";
 import { ProjectDialog } from "./project-dialog";
 import { BookProperties } from "./book-properties";
+import { QuickPhotos } from "./workflow/quick-photos";
+import { ExportPanel, type OutputQuality } from "./workflow/export-panel";
 import { useStudio } from "@/lib/store";
 import { api, cn } from "@/lib/utils";
+import { exportDownloadName } from "@/lib/downloads";
+import { APP_VERSION } from "@/lib/version";
 import {
   makeBook,
   makeScene,
@@ -60,6 +63,7 @@ import {
   totalFrames,
   dimensions,
   pairFiles,
+  assertRenderProducts,
   type Project,
   type Asset,
   type Scene,
@@ -120,7 +124,9 @@ export default function Studio() {
     [leftTab, setLeftTab] = useState<"library" | "templates" | "queue">(
       "library",
     ),
-    [rightTab, setRightTab] = useState<"product" | "scene" | "export">("scene"),
+    [rightTab, setRightTab] = useState<"product" | "scene" | "export">(
+      "export",
+    ),
     [query, setQuery] = useState(""),
     [busy, setBusy] = useState(""),
     [toast, setToast] = useState(""),
@@ -135,7 +141,9 @@ export default function Studio() {
     [jobs, setJobs] = useState<RenderJob[]>([]),
     [playing, setPlaying] = useState(false),
     [transparent, setTransparent] = useState(false),
-    [quality, setQuality] = useState<"preview" | "1080p">("1080p"),
+    [lastExport, setLastExport] = useState<RenderJob | null>(null),
+    [exporting, setExporting] = useState(false),
+    [exportKind, setExportKind] = useState<RenderJob["kind"]>("video"),
     [dragging, setDragging] = useState(false),
     [filter, setFilter] = useState("all");
   const player = useRef<PlayerRef>(null),
@@ -145,13 +153,34 @@ export default function Studio() {
     folder = useRef<HTMLInputElement>(null),
     audio = useRef<HTMLInputElement>(null),
     stage = useRef<HTMLDivElement>(null),
+    propertyScroll = useRef<HTMLDivElement>(null),
     uploadTarget = useRef<{ id: string; side: "front" | "back" } | null>(null);
   const book =
     project.books.find((b) => b.id === selectedBook) || project.books[0];
   const scene = project.scenes[selectedScene] || project.scenes[0];
+  const quality = project.exportQuality || "1080p";
+  function setQuality(value: OutputQuality) {
+    patchProject({ exportQuality: value });
+  }
   const frames = totalFrames(project),
     size = dimensions(project.format);
   const preview = previewSettings(project);
+  const exportProblem = useMemo(() => {
+    if (!project.books.length) return "Sube una portada para empezar.";
+    try {
+      assertRenderProducts(project);
+      return "";
+    } catch (error) {
+      return (error as Error).message;
+    }
+  }, [project]);
+  const currentExport =
+    lastExport?.projectId === project.id
+      ? jobs.find((job) => job.id === lastExport.id) || lastExport
+      : jobs.find((job) => job.projectId === project.id) || null;
+  useEffect(() => {
+    propertyScroll.current?.scrollTo({ top: 0 });
+  }, [rightTab]);
   const previewProps = useMemo(
     () => ({ project, origin: "", transparent: false }),
     [project],
@@ -211,10 +240,15 @@ export default function Studio() {
   }, [project, ready, setSaved]);
   useEffect(() => {
     let live = true;
+    let previous = "";
     const refresh = () =>
       void api<RenderJob[]>("/api/render")
         .then((v) => {
-          if (live) setJobs(v);
+          const next = JSON.stringify(v);
+          if (live && next !== previous) {
+            previous = next;
+            setJobs(v);
+          }
         })
         .catch(() => {});
     refresh();
@@ -233,10 +267,19 @@ export default function Studio() {
     if (mode !== "cinema") return;
     const p = player.current;
     if (!p) return;
-    const update = ({ detail }: { detail: { frame: number } }) =>
-      setFrame(detail.frame);
+    let lastUiUpdate = 0;
+    const update = ({ detail }: { detail: { frame: number } }) => {
+      const now = performance.now();
+      if (now - lastUiUpdate >= 100 || !p.isPlaying()) {
+        lastUiUpdate = now;
+        setFrame(detail.frame);
+      }
+    };
     const play = () => setPlaying(true),
-      pause = () => setPlaying(false);
+      pause = () => {
+        setPlaying(false);
+        setFrame(p.getCurrentFrame());
+      };
     p.addEventListener("frameupdate", update);
     p.addEventListener("play", play);
     p.addEventListener("pause", pause);
@@ -291,9 +334,13 @@ export default function Studio() {
       }
       if (target && imported.length === 1) {
         patchBook(target.id, { [target.side]: imported[0] });
+        patchScene({ bookIds: [target.id] });
         selectBook(target.id);
-        setRightTab("product");
         setMode("inspect");
+        setLeftTab("library");
+        setToast(
+          `${target.side === "front" ? "Portada" : "Contraportada"} lista. Vista 3D actualizada.`,
+        );
       } else {
         const groups = pairFiles(
           files.map((f) => f.webkitRelativePath || f.name),
@@ -341,9 +388,27 @@ export default function Studio() {
     }
   }
   function uploadSide(side: "front" | "back") {
-    if (!book) return;
-    uploadTarget.current = { id: book.id, side };
+    const targetBook = book || makeBook("Mi libro");
+    if (!book) {
+      patchProject({ books: [...project.books, targetBook] });
+      selectBook(targetBook.id);
+    }
+    uploadTarget.current = { id: targetBook.id, side };
     single.current?.click();
+  }
+  function dropSide(file: File, side: "front" | "back") {
+    const targetBook = book || makeBook("Mi libro");
+    if (!book) {
+      patchProject({ books: [...project.books, targetBook] });
+      selectBook(targetBook.id);
+    }
+    void importFiles([file], { id: targetBook.id, side });
+  }
+  function previewBook() {
+    if (book) patchScene({ bookIds: [book.id] });
+    setMode("cinema");
+    setRightTab("scene");
+    seek(20);
   }
   function newBook() {
     const b = makeBook();
@@ -353,19 +418,25 @@ export default function Studio() {
     setMode("inspect");
   }
   async function exportJob(kind: RenderJob["kind"], one?: Project) {
-    await api("/api/render", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        project: one || project,
-        kind,
-        quality,
-        frame,
-        transparent: kind === "video" ? false : transparent,
-      }),
-    });
-    setLeftTab("queue");
-    setToast("Trabajo añadido a la cola local.");
+    setExporting(true);
+    try {
+      const job = await api<RenderJob>("/api/render", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          project: one || project,
+          kind,
+          quality,
+          frame,
+          transparent: kind === "video" ? false : transparent,
+        }),
+      });
+      setLastExport(job);
+      setRightTab("export");
+      setToast("Trabajo añadido a la cola local.");
+    } finally {
+      setExporting(false);
+    }
   }
   function applyTemplate(index: number) {
     const scenes = scenesFromTemplate(
@@ -419,6 +490,7 @@ export default function Studio() {
     <div className="studio-shell">
       <input
         ref={single}
+        aria-label="Archivo de portada o contraportada"
         hidden
         type="file"
         accept="image/jpeg,image/png,image/webp"
@@ -477,7 +549,7 @@ export default function Studio() {
           <strong>
             BookStudio<span> AI</span>
           </strong>
-          <span className="beta">LOCAL STUDIO</span>
+          <span className="beta">v{APP_VERSION}</span>
         </div>
         <div className="project-switch">
           <button onClick={() => setProjectsOpen(true)}>
@@ -511,7 +583,7 @@ export default function Studio() {
               setRightTab("export");
             }}
           >
-            <Download size={14} /> Exportar <ChevronDown size={12} />
+            <Download size={14} /> Exportar
           </Button>
         </div>
       </header>
@@ -580,6 +652,26 @@ export default function Studio() {
         </div>
         {leftTab === "library" ? (
           <>
+            <QuickPhotos
+              book={book}
+              busy={busy}
+              onUpload={uploadSide}
+              onDrop={dropSide}
+              onReuse={() => {
+                if (book?.front) {
+                  patchBook(book.id, { back: book.front });
+                  patchScene({ bookIds: [book.id] });
+                  setToast(
+                    "La portada se usará en ambas caras. Puedes cambiar el reverso cuando quieras.",
+                  );
+                }
+              }}
+              onSwap={() => {
+                if (book)
+                  patchBook(book.id, { front: book.back, back: book.front });
+              }}
+              onPreview={previewBook}
+            />
             <div className="library-search">
               <Search size={14} />
               <input
@@ -604,49 +696,52 @@ export default function Studio() {
                 Por revisar
               </button>
             </div>
-            <div
-              className={cn("drop-zone", dragging && "dragging")}
-              onDragOver={(e) => {
-                e.preventDefault();
-                setDragging(true);
-              }}
-              onDragLeave={() => setDragging(false)}
-              onDrop={(e) => {
-                e.preventDefault();
-                setDragging(false);
-                void importFiles(Array.from(e.dataTransfer.files), null);
-              }}
-            >
-              <Upload size={22} />
-              <strong>
-                Tu próxima producción
-                <br />
-                empieza con dos fotos.
-              </strong>
-              <p>
-                Arrastra portadas y contraportadas
-                <br />
-                JPG, PNG o WebP · hasta 30 MB
-              </p>
-              <Button
-                variant="secondary"
-                size="sm"
-                disabled={Boolean(busy)}
-                onClick={() => {
-                  uploadTarget.current = null;
-                  batch.current?.click();
+            <details className="batch-import">
+              <summary>Importar carpeta o varios libros</summary>
+              <div
+                className={cn("drop-zone", dragging && "dragging")}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setDragging(true);
+                }}
+                onDragLeave={() => setDragging(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setDragging(false);
+                  void importFiles(Array.from(e.dataTransfer.files), null);
                 }}
               >
-                Importar fotografías
-              </Button>
-              <button
-                className="text-button"
-                onClick={() => folder.current?.click()}
-                disabled={Boolean(busy)}
-              >
-                <FolderOpen size={12} /> Seleccionar carpeta
-              </button>
-            </div>
+                <Upload size={22} />
+                <strong>
+                  Tu próxima producción
+                  <br />
+                  empieza con dos fotos.
+                </strong>
+                <p>
+                  Arrastra portadas y contraportadas
+                  <br />
+                  JPG, PNG o WebP · hasta 30 MB
+                </p>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={Boolean(busy)}
+                  onClick={() => {
+                    uploadTarget.current = null;
+                    batch.current?.click();
+                  }}
+                >
+                  Importar fotografías
+                </Button>
+                <button
+                  className="text-button"
+                  onClick={() => folder.current?.click()}
+                  disabled={Boolean(busy)}
+                >
+                  <FolderOpen size={12} /> Seleccionar carpeta
+                </button>
+              </div>
+            </details>
             <div className="library-label">
               PRODUCTOS{" "}
               <span>{project.books.length.toString().padStart(2, "0")}</span>
@@ -813,9 +908,21 @@ export default function Studio() {
                 <p className={job.status === "error" ? "error" : ""}>
                   {job.message}
                 </p>
+                {job.output && (
+                  <p>
+                    {job.output.width} × {job.output.height} px ·{" "}
+                    {job.output.quality === "preview"
+                      ? "360p"
+                      : job.output.quality}
+                  </p>
+                )}
                 {job.file && job.status === "done" && (
-                  <a href={`/api/exports/${job.file}`} download={job.file}>
-                    <Download size={13} /> Descargar archivo
+                  <a
+                    href={`/api/exports/${job.file}?download=1`}
+                    download={exportDownloadName(job.projectName, job.file)}
+                  >
+                    <Download size={13} /> Descargar{" "}
+                    {job.file.split(".").pop()?.toUpperCase()}
                   </a>
                 )}
               </article>
@@ -824,6 +931,30 @@ export default function Studio() {
         )}
       </aside>
       <main className="workspace">
+        <nav className="workflow-steps" aria-label="Pasos de producción">
+          <button
+            aria-current={rightTab === "product" ? "step" : undefined}
+            onClick={() => {
+              setLeftTab("library");
+              setRightTab("product");
+            }}
+          >
+            <span>1</span>Cargar fotos
+            {book?.front && book.back && <Check size={14} />}
+          </button>
+          <button
+            aria-current={rightTab === "scene" ? "step" : undefined}
+            onClick={previewBook}
+          >
+            <span>2</span>Ver y animar
+          </button>
+          <button
+            aria-current={rightTab === "export" ? "step" : undefined}
+            onClick={() => setRightTab("export")}
+          >
+            <span>3</span>Exportar y descargar
+          </button>
+        </nav>
         <div className="workspace-bar">
           <div className="workspace-tabs">
             <button
@@ -914,7 +1045,7 @@ export default function Studio() {
             </span>
             <span>
               {mode === "cinema"
-                ? `${size.width} × ${size.height}`
+                ? `Salida ${dimensions(project.format, quality).width} × ${dimensions(project.format, quality).height}`
                 : "ÓRBITA 360°"}{" "}
               <span className="stage-quality">{project.fps} FPS</span>
             </span>
@@ -924,10 +1055,36 @@ export default function Studio() {
               "stage-frame",
               project.format === "portrait" && "portrait",
             )}
-            style={{ aspectRatio: `${size.width}/${size.height}` }}
+            style={
+              {
+                aspectRatio: `${size.width}/${size.height}`,
+                "--stage-ratio": size.width / size.height,
+              } as React.CSSProperties
+            }
           >
             <ViewBoundary>
-              {mode === "cinema" ? (
+              {(
+                mode === "inspect"
+                  ? !book?.front
+                  : !project.books.some((item) => item.front)
+              ) ? (
+                <div className="preview-empty">
+                  <BookOpen size={40} />
+                  <h2>Tu libro aparecerá aquí</h2>
+                  <p>
+                    Carga la portada y el reverso en el panel izquierdo.
+                    <br />
+                    La vista 3D se prepara automáticamente.
+                  </p>
+                  <Button
+                    disabled={Boolean(busy)}
+                    onClick={() => uploadSide("front")}
+                  >
+                    <Upload size={16} />
+                    Subir mi primera portada
+                  </Button>
+                </div>
+              ) : mode === "cinema" ? (
                 <Player
                   ref={player}
                   component={VideoComposition}
@@ -936,7 +1093,7 @@ export default function Studio() {
                   fps={project.fps}
                   compositionWidth={preview.width}
                   compositionHeight={preview.height}
-                  initialFrame={Math.min(30, frames - 1)}
+                  initialFrame={Math.min(frame, frames - 1)}
                   style={{ width: "100%", height: "100%" }}
                   controls={false}
                   clickToPlay={false}
@@ -953,11 +1110,6 @@ export default function Studio() {
                 />
               )}
             </ViewBoundary>
-            {project.books.length === 0 && (
-              <span className="sample-badge">
-                LIBRO DE MUESTRA · IMPORTA TUS FOTOS PARA PRODUCIR
-              </span>
-            )}
           </div>
           <div className="stage-bottomline">
             <span className="proxy-status">
@@ -1211,7 +1363,7 @@ export default function Studio() {
             </button>
           ))}
         </div>
-        <div className="property-scroll">
+        <div className="property-scroll" ref={propertyScroll}>
           {rightTab === "product" ? (
             book ? (
               <>
@@ -1562,199 +1714,162 @@ export default function Studio() {
             </>
           ) : (
             <>
-              <div className="property-section">
-                <div className="section-title">
-                  PRODUCCIÓN <span>01</span>
-                </div>
-                <div className="field">
-                  <label htmlFor="project-name">Nombre del proyecto</label>
-                  <input
-                    id="project-name"
-                    maxLength={120}
-                    value={project.name}
-                    onChange={(e) => {
-                      if (e.target.value)
-                        patchProject({ name: e.target.value });
-                    }}
-                  />
-                </div>
-                <div className="field">
-                  <label htmlFor="fps">Fotogramas por segundo</label>
-                  <select
-                    id="fps"
-                    value={project.fps}
-                    onChange={(e) =>
-                      patchProject({
-                        fps: Number(e.target.value) as Project["fps"],
+              <ExportPanel
+                project={project}
+                kind={exportKind}
+                onKind={setExportKind}
+                quality={quality}
+                onQuality={setQuality}
+                onProject={patchProject}
+                problem={exportProblem}
+                job={currentExport}
+                transparent={transparent}
+                onTransparent={setTransparent}
+                onPhotos={() => {
+                  setLeftTab("library");
+                  setRightTab("product");
+                }}
+                onHistory={() => setLeftTab("queue")}
+              />
+              <details className="advanced-export-tools">
+                <summary>Fotos de cámara, modelo 3D y lotes</summary>
+                <div className="property-section">
+                  <Button
+                    className="full"
+                    variant="secondary"
+                    size="sm"
+                    disabled={mode !== "inspect" || !book?.front || !book?.back}
+                    onClick={() =>
+                      void run(async () => {
+                        await viewer.current?.capture("png", transparent);
                       })
                     }
                   >
-                    {[24, 30, 60].map((f) => (
-                      <option key={f} value={f}>
-                        {f} FPS
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="field">
-                  <label htmlFor="quality">Resolución de exportación</label>
-                  <select
-                    id="quality"
-                    value={quality}
-                    onChange={(e) =>
-                      setQuality(e.target.value as typeof quality)
-                    }
-                  >
-                    <option value="1080p">
-                      1080p · {size.width} × {size.height}
-                    </option>
-                    <option value="preview">Borrador · 360p</option>
-                  </select>
-                </div>
-                <div className="field">
-                  <label htmlFor="performance">
-                    Calidad del visor interactivo
-                  </label>
-                  <select
-                    id="performance"
-                    value={project.performance}
-                    onChange={(e) =>
-                      patchProject({
-                        performance: e.target.value as Project["performance"],
+                    <Download size={14} /> Foto de la cámara actual
+                  </Button>
+                  <Button
+                    className="full"
+                    variant="ghost"
+                    size="sm"
+                    disabled={mode !== "inspect" || !book?.front || !book?.back}
+                    onClick={() =>
+                      void run(async () => {
+                        await viewer.current?.glb();
                       })
                     }
                   >
-                    <option value="low">Baja · menor consumo</option>
-                    <option value="medium">Media · equilibrada</option>
-                    <option value="high">Alta · mayor detalle</option>
-                  </select>
+                    <Box size={14} /> Descargar modelo GLB
+                  </Button>
+                  <p className="hint">
+                    Para fotos desde cualquier ángulo y GLB, abre «Libro 3D». El
+                    GLB usa metros. La foto de cámara sale a 1080p; para usar la
+                    resolución elegida, exporta PNG o WebP desde el panel
+                    principal.
+                  </p>
                 </div>
-                <p className="hint">
-                  4K pendiente de validación. El render usa la resolución de
-                  exportación, independientemente del visor.
-                </p>
-              </div>
-              <div className="property-section">
-                <div className="section-title">
-                  EXPORTAR <span>02</span>
-                </div>
-                <Button
-                  className="full"
-                  disabled={!project.books.some((b) => b.front && b.back)}
-                  onClick={() => void run(() => exportJob("video"))}
-                >
-                  <Film size={15} /> Renderizar MP4
-                </Button>
-                <p className="hint">
-                  H.264 · {(frames / project.fps).toFixed(1)} segundos · render
-                  local
-                </p>
-                <div className="export-row">
+                <div className="property-section">
+                  <div className="section-title">
+                    LOTE DE PRODUCTOS <span>03</span>
+                  </div>
                   <Button
+                    className="full"
                     variant="secondary"
                     size="sm"
-                    onClick={() => void run(() => exportJob("png"))}
+                    disabled={
+                      !project.books.some((b) => b.front && b.back) ||
+                      selectedJobs.length > 15
+                    }
+                    onClick={() =>
+                      void run(async () => {
+                        const complete = project.books.filter(
+                          (b) => b.front && b.back,
+                        );
+                        for (const b of complete) {
+                          await exportJob("video", {
+                            ...project,
+                            name: b.name,
+                            books: [b],
+                            scenes: project.scenes.map((s) => ({
+                              ...s,
+                              bookIds: [b.id],
+                            })),
+                          });
+                        }
+                      })
+                    }
                   >
-                    <ImageIcon size={13} /> PNG
+                    <Layers3 size={14} /> Un MP4 por libro completo
                   </Button>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => void run(() => exportJob("webp"))}
-                  >
-                    WebP
-                  </Button>
+                  <p className="hint">
+                    Aplica la secuencia actual a cada producto. La cola procesa
+                    un video a la vez.
+                  </p>
                 </div>
-                <label className="checkbox-label">
-                  <input
-                    type="checkbox"
-                    checked={transparent}
-                    onChange={(e) => setTransparent(e.target.checked)}
-                  />{" "}
-                  Fondo transparente en imágenes
-                </label>
-                <p className="hint">
-                  La imagen publicitaria usa el fotograma actual del timeline.
-                </p>
-                <hr />
-                <Button
-                  className="full"
-                  variant="secondary"
-                  size="sm"
-                  disabled={mode !== "inspect" || !book?.front || !book?.back}
-                  onClick={() =>
-                    void run(async () => {
-                      await viewer.current?.capture("png", transparent);
-                    })
-                  }
-                >
-                  <Download size={14} /> Foto de la cámara actual
-                </Button>
-                <Button
-                  className="full"
-                  variant="ghost"
-                  size="sm"
-                  disabled={mode !== "inspect" || !book?.front || !book?.back}
-                  onClick={() =>
-                    void run(async () => {
-                      await viewer.current?.glb();
-                    })
-                  }
-                >
-                  <Box size={14} /> Descargar modelo GLB
-                </Button>
-                <p className="hint">
-                  Para fotos desde cualquier ángulo y GLB, abre «Libro 3D». El
-                  GLB usa metros.
-                </p>
-              </div>
-              <div className="property-section">
-                <div className="section-title">
-                  LOTE DE PRODUCTOS <span>03</span>
-                </div>
-                <Button
-                  className="full"
-                  variant="secondary"
-                  size="sm"
-                  disabled={
-                    !project.books.some((b) => b.front && b.back) ||
-                    selectedJobs.length > 15
-                  }
-                  onClick={() =>
-                    void run(async () => {
-                      const complete = project.books.filter(
-                        (b) => b.front && b.back,
-                      );
-                      for (const b of complete) {
-                        await exportJob("video", {
-                          ...project,
-                          name: b.name,
-                          books: [b],
-                          scenes: project.scenes.map((s) => ({
-                            ...s,
-                            bookIds: [b.id],
-                          })),
-                        });
-                      }
-                    })
-                  }
-                >
-                  <Layers3 size={14} /> Un MP4 por libro completo
-                </Button>
-                <p className="hint">
-                  Aplica la secuencia actual a cada producto. La cola procesa un
-                  video a la vez.
-                </p>
-              </div>
+              </details>
             </>
           )}
         </div>
+        {rightTab === "export" && (
+          <div className="export-action-bar">
+            {currentExport?.status === "done" && currentExport.file && (
+              <a
+                className="download-ready"
+                href={`/api/exports/${currentExport.file}?download=1`}
+                download={exportDownloadName(
+                  currentExport.projectName,
+                  currentExport.file,
+                )}
+              >
+                <Download size={16} />
+                Descargar{" "}
+                {currentExport.kind === "video"
+                  ? "MP4"
+                  : currentExport.kind.toUpperCase()}{" "}
+                listo
+              </a>
+            )}
+            {currentExport &&
+              (currentExport.status === "rendering" ||
+                currentExport.status === "queued") && (
+                <div className="footer-progress" role="status">
+                  <span>
+                    {currentExport.status === "queued"
+                      ? "En cola"
+                      : `Exportando ${Math.round(currentExport.progress * 100)} %`}
+                  </span>
+                  <progress max={1} value={currentExport.progress} />
+                </div>
+              )}
+            <Button
+              className="full export-main-button"
+              variant={
+                currentExport?.status === "done" ? "secondary" : "default"
+              }
+              disabled={Boolean(exportProblem) || exporting || Boolean(busy)}
+              onClick={() => void run(() => exportJob(exportKind))}
+            >
+              {exporting ? (
+                <LoaderCircle className="spin" size={17} />
+              ) : (
+                <Download size={17} />
+              )}{" "}
+              {exporting
+                ? "Preparando…"
+                : `Exportar ${exportKind === "video" ? "MP4" : exportKind.toUpperCase()}`}
+            </Button>
+            <small>
+              {dimensions(project.format, quality).width} ×{" "}
+              {dimensions(project.format, quality).height} px ·{" "}
+              {quality === "preview" ? "360p" : quality}
+            </small>
+          </div>
+        )}
         <div className="property-footer">
           <span className="status-dot" />{" "}
           {selectedJobs.length
             ? `${selectedJobs.length} trabajo(s) en cola`
             : "Estudio listo"}
-          <span>v0.1</span>
+          <span>v{APP_VERSION}</span>
         </div>
       </aside>
       <footer className="statusbar">

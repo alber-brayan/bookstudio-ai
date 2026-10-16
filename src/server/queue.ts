@@ -2,11 +2,17 @@ import { spawn, type ChildProcess } from "node:child_process";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { dataDir, listJobs, newId, outputDir, storeJob } from "./storage";
-import type { Project, RenderJob } from "@/lib/schema";
+import {
+  dimensions,
+  totalFrames,
+  type Project,
+  type RenderJob,
+  type ExportQuality,
+} from "@/lib/schema";
 type QueueItem = {
   job: RenderJob;
   project: Project;
-  quality: "preview" | "1080p" | "4k";
+  quality: ExportQuality;
   frame: number;
   transparent: boolean;
 };
@@ -52,6 +58,14 @@ export function enqueue(
     createdAt: new Date().toISOString(),
     kind,
     projectName: project.name,
+    projectId: project.id,
+    output: {
+      ...dimensions(project.format, quality),
+      fps: project.fps,
+      duration: totalFrames(project) / project.fps,
+      quality,
+      format: project.format,
+    },
   };
   q.items.push({ job, project, quality, frame, transparent });
   storeJob(job);

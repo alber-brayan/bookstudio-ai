@@ -63,8 +63,8 @@ try {
     chromiumOptions,
   });
   check();
-  if (quality === "preview") {
-    const ratio = 360 / 1080;
+  if (quality === "preview" || quality === "720p") {
+    const ratio = (quality === "720p" ? 720 : 360) / 1080;
     composition.width = Math.round((composition.width * ratio) / 2) * 2;
     composition.height = Math.round((composition.height * ratio) / 2) * 2;
   }

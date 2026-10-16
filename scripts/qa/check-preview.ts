@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import assert from "node:assert/strict";
 import { createHash, randomUUID } from "node:crypto";
 import sharp from "sharp";
-import type { Project, RenderJob } from "../src/lib/schema";
+import type { Project, RenderJob } from "../../src/lib/schema";
 
 const origin = process.env.BOOKSTUDIO_ORIGIN || "http://127.0.0.1:3000";
 const real = JSON.parse(

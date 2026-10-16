@@ -5,6 +5,7 @@ import {
   makeProject,
   makeScene,
   projectSchema,
+  dimensions,
 } from "../src/lib/schema";
 import {
   previewSettings,
@@ -13,6 +14,22 @@ import {
   showsText,
 } from "../src/lib/preview";
 
+test("720p exports have exact aspect dimensions and retain the saved quality", () => {
+  assert.deepEqual(dimensions("landscape", "720p"), {
+    width: 1280,
+    height: 720,
+  });
+  assert.deepEqual(dimensions("portrait", "720p"), {
+    width: 720,
+    height: 1280,
+  });
+  assert.deepEqual(dimensions("square", "720p"), { width: 720, height: 720 });
+  assert.equal(
+    projectSchema.parse({ ...makeProject(), exportQuality: "720p" })
+      .exportQuality,
+    "720p",
+  );
+});
 test("legacy projects use proxies and retain full export format", () => {
   const p = makeProject();
   delete p.useProxies;

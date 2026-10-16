@@ -8,8 +8,8 @@ import {
   makeBook,
   type Asset,
   type RenderJob,
-} from "../src/lib/schema";
-import { scenesFromTemplate } from "../src/lib/templates";
+} from "../../src/lib/schema";
+import { scenesFromTemplate } from "../../src/lib/templates";
 const origin = process.env.BOOKSTUDIO_ORIGIN || "http://127.0.0.1:3000";
 async function call<T>(url: string, body?: unknown): Promise<T> {
   const res = await fetch(

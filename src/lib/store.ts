@@ -1,5 +1,11 @@
 import { create } from "zustand";
-import { makeProject, type Project, type Book, type Scene } from "./schema";
+import {
+  makeProject,
+  totalFrames,
+  type Project,
+  type Book,
+  type Scene,
+} from "./schema";
 type State = {
   project: Project;
   selectedBook: string;
@@ -29,7 +35,7 @@ export const useStudio = create<State>((set) => ({
       project: p,
       selectedBook: p.books[0]?.id || "",
       selectedScene: 0,
-      frame: 0,
+      frame: Math.min(20, totalFrames(p) - 1),
     }),
   patchProject: (p) =>
     set((s) => ({

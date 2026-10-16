@@ -1,6 +1,7 @@
 import { open, stat } from "node:fs/promises";
-import { safeExport } from "@/server/storage";
+import { safeExport, listJobs } from "@/server/storage";
 import { failure } from "@/server/http";
+import { exportDownloadName } from "@/lib/downloads";
 export async function GET(
   req: Request,
   { params }: { params: Promise<{ name: string }> },
@@ -9,6 +10,13 @@ export async function GET(
     const { name } = await params;
     const file = safeExport(name);
     const info = await stat(file);
+    const downloading = new URL(req.url).searchParams.has("download");
+    const job = downloading
+      ? listJobs().find((item) => item.file === name)
+      : undefined;
+    const filename = downloading
+      ? exportDownloadName(job?.projectName || "produccion", name)
+      : name;
     const range = req.headers.get("range");
     let start = 0,
       end = info.size - 1;
@@ -31,10 +39,15 @@ export async function GET(
         ? "video/mp4"
         : name.endsWith(".webp")
           ? "image/webp"
-          : "image/png",
+          : name.endsWith(".glb")
+            ? "model/gltf-binary"
+            : "image/png",
       "Content-Length": String(buffer.length),
       "Accept-Ranges": "bytes",
-      "Content-Disposition": `inline; filename="${name}"`,
+      "Content-Disposition": downloading
+        ? `attachment; filename="${filename}"; filename*=UTF-8''${encodeURIComponent(filename)}`
+        : `inline; filename="${name}"`,
+      "X-Content-Type-Options": "nosniff",
     };
     if (range) headers["Content-Range"] = `bytes ${start}-${end}/${info.size}`;
     return new Response(buffer, { status: range ? 206 : 200, headers });

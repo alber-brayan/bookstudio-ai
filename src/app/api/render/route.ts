@@ -15,7 +15,7 @@ export async function POST(req: Request) {
       .object({
         project: projectSchema,
         kind: z.enum(["video", "png", "webp"]),
-        quality: z.enum(["preview", "1080p", "4k"]).default("1080p"),
+        quality: z.enum(["preview", "720p", "1080p", "4k"]).default("1080p"),
         frame: z.number().int().min(0).default(0),
         transparent: z.boolean().default(false),
       })

@@ -1,6 +1,6 @@
 import fs from "node:fs/promises";
 import assert from "node:assert/strict";
-import type { Project, RenderJob } from "../src/lib/schema";
+import type { Project, RenderJob } from "../../src/lib/schema";
 const origin = process.env.BOOKSTUDIO_ORIGIN || "http://127.0.0.1:3000";
 const source = JSON.parse(
   await fs.readFile("data/verification/smoke.json", "utf8"),
