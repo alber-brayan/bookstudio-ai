@@ -1,4 +1,4 @@
-import EditorialSite from "@/components/editorial/editorial-site";
+import Studio from "./client";
 export default function Page() {
-  return <EditorialSite />;
+  return <Studio />;
 }

@@ -11,10 +11,3 @@ __pycache__/
 *.log
 .playwright-mcp/
 coverage/
-.taste-skill/
-.design/*.png
-.design/*.jpg
-.design/*.tar.gz
-sites/**/.sites-checkout/
-sites/**/.sites-runtime/
-sites/**/dist/

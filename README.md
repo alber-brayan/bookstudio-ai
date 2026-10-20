@@ -4,6 +4,8 @@
 
 [Descargar v1.0.0](https://github.com/alber-brayan/bookstudio-ai/releases/tag/v1.0.0) · [Guía completa](docs/GUIA.md) · [Cambios](CHANGELOG.md) · [Estado y límites](PROGRESS.md)
 
+La web de la editorial se mantiene como proyecto independiente en [Editorial-D-Fernadez](https://github.com/alber-brayan/Editorial-D-Fernadez). Este repositorio contiene el estudio de producción.
+
 **Copyright © 2026 alber-brayan. Todos los derechos reservados.** El código propio se publica para consulta; cualquier permiso adicional de uso, modificación o redistribución requiere autorización del titular, sin limitar lo previsto por la ley y los términos de GitHub. Consulta [LICENSE](LICENSE). Las dependencias conservan sus licencias respectivas.
 
 ## Empezar en Windows
@@ -17,17 +19,9 @@ cd bookstudio-ai
 
 1. Ejecuta **INSTALAR.cmd** una vez para instalar dependencias y Chromium.
 2. Ejecuta **INICIAR BOOKSTUDIO.cmd** y conserva la consola abierta.
-3. Abre [BookStudio local](http://127.0.0.1:3000/studio). La página comercial de Editorial D’Fernandez está en [la portada](http://127.0.0.1:3000/), también disponible con `VER WEB EDITORIAL.cmd`.
+3. Abre [BookStudio local](http://127.0.0.1:3000/).
 
 No necesitas clave de OpenAI para cargar fotos, corregirlas, trabajar en 3D o exportar.
-
-## Web de Editorial D’Fernandez
-
-La portada presenta textos escolares personalizados con el logo de cada institución y contenidos adaptados a su currícula, con venta exclusiva para instituciones educativas. Incluye cinco muestras 3D girables, seis videos silenciosos, selector de acabados, cotización por WhatsApp, modo claro/oscuro con preferencia guardada y Google Maps con la ubicación del local.
-
-[Visitar la web publicada](https://editorial-dfernandez-ayacucho.shadypony128.chatgpt.site/) · [Fuentes y publicación estática](sites/editorial-dfernandez/README.md)
-
-La versión estática está separada del estudio local y sus API. Para actualizarla: `node scripts/package-editorial-site.mjs`, `node sites/editorial-dfernandez/build.mjs` y `node scripts/preview-editorial.mjs` para revisarla en el puerto 3001. Los recursos web optimizados están incluidos; las grabaciones originales de `VIDEOS/` permanecen locales.
 
 ## Flujo de producción
 
