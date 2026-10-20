@@ -4,7 +4,7 @@
 
 [Descargar v1.0.0](https://github.com/alber-brayan/bookstudio-ai/releases/tag/v1.0.0) · [Guía completa](docs/GUIA.md) · [Cambios](CHANGELOG.md) · [Estado y límites](PROGRESS.md)
 
-La web de la editorial se mantiene como proyecto independiente en [Editorial-D-Fernadez](https://github.com/alber-brayan/Editorial-D-Fernadez). Este repositorio contiene el estudio de producción.
+La web de la editorial se mantiene como proyecto independiente en [Editorial-D-Fernadez](https://github.com/alber-brayan/Editorial-D-Fernadez). Su carpeta local está en `Editorial-D-Fernadez/` dentro de BookStudio, con su propio historial Git y dependencias. El estudio excluye esa carpeta de sus comprobaciones y de este repositorio.
 
 **Copyright © 2026 alber-brayan. Todos los derechos reservados.** El código propio se publica para consulta; cualquier permiso adicional de uso, modificación o redistribución requiere autorización del titular, sin limitar lo previsto por la ley y los términos de GitHub. Consulta [LICENSE](LICENSE). Las dependencias conservan sus licencias respectivas.
 

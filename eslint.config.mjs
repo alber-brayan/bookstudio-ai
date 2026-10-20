@@ -16,6 +16,7 @@ export default defineConfig([
     "data/**",
     "out/**",
     "node_modules/**",
+    "Editorial-D-Fernadez/**",
     "next-env.d.ts",
   ]),
 ]);

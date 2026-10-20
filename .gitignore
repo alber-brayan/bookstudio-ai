@@ -11,3 +11,6 @@ __pycache__/
 *.log
 .playwright-mcp/
 coverage/
+
+# Independent editorial website stored locally inside this workspace.
+/Editorial-D-Fernadez/
