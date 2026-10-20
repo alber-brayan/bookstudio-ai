@@ -1,0 +1,9 @@
+{
+  "name": "editorial-dfernandez",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": { "build": "node build.mjs" },
+  "dependencies": { "react": "19.2.4", "react-dom": "19.2.4", "lucide-react": "^0.577.0" },
+  "devDependencies": { "esbuild": "^0.27.0" }
+}

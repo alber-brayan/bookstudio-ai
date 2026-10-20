@@ -1,0 +1,35 @@
+{
+  "photos": "data/productions/2026-10-16-fotos",
+  "clips": [
+    {
+      "source": "TEXTO ATENAS.mp4",
+      "video": "atenas-silent.mp4",
+      "poster": "atenas-poster.jpg"
+    },
+    {
+      "source": "TEXTO CENTER.mp4",
+      "video": "center-silent.mp4",
+      "poster": "center-poster.jpg"
+    },
+    {
+      "source": "TEXTO MARIA ROMERO.mp4",
+      "video": "maria-romero-silent.mp4",
+      "poster": "maria-romero-poster.jpg"
+    },
+    {
+      "source": "TEXTO DIEGO THOMPSON.mp4",
+      "video": "diego-thompson-silent.mp4",
+      "poster": "diego-thompson-poster.jpg"
+    },
+    {
+      "source": "TEXTO DIEGO THOMPSON 2.mp4",
+      "video": "diego-thompson-2-silent.mp4",
+      "poster": "diego-thompson-2-poster.jpg"
+    },
+    {
+      "source": "D'FERNANDEZ.mp4",
+      "video": "editorial-silent.mp4",
+      "poster": "editorial-poster.jpg"
+    }
+  ]
+}

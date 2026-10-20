@@ -17,7 +17,7 @@ cd bookstudio-ai
 
 1. Ejecuta `INSTALAR.cmd` una vez. Descarga las dependencias públicas y Chromium para Remotion. No requiere clave OpenAI.
 2. Ejecuta `INICIAR BOOKSTUDIO.cmd`.
-3. Abre **http://127.0.0.1:3000** y conserva la consola abierta.
+3. Abre **http://127.0.0.1:3000/studio** y conserva la consola abierta. La web comercial de la editorial está en **http://127.0.0.1:3000**.
 
 También puedes usar PowerShell:
 
